@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Scrubbing & Calling Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;
+  --text:#e6edf3;--text-muted:#8b949e;
+  --blue:#58a6ff;--green:#3fb950;--yellow:#d29922;
+  --orange:#f0883e;--red:#f85149;--purple:#bc8cff;--cyan:#39c5cf;--accent:#1f6feb;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+.top-header{
+  background:linear-gradient(135deg,#0d1117 0%,#161b22 50%,#0d1117 100%);
+  border-bottom:1px solid var(--border);padding:16px 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;backdrop-filter:blur(10px);flex-wrap:wrap;gap:10px;
+}
+.top-header h1{font-size:19px;font-weight:700;letter-spacing:-.3px;}
+.top-header h1 span{color:var(--blue);}
+.month-selector-wrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.month-selector-label{font-size:11px;color:var(--text-muted);font-weight:600;
+  text-transform:uppercase;letter-spacing:.8px;}
+.month-pills{display:flex;gap:6px;flex-wrap:wrap;}
+.month-pill{
+  background:var(--surface2);border:1px solid var(--border);border-radius:20px;
+  padding:6px 14px;font-size:13px;font-weight:500;color:var(--text-muted);
+  cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.month-pill:hover{border-color:var(--blue);color:var(--text);}
+.month-pill.active{background:var(--accent);border-color:var(--blue);color:#fff;font-weight:600;}
+
+.main{padding:22px 28px;max-width:1600px;margin:0 auto;}
+.section-title{font-size:11px;font-weight:600;letter-spacing:1.2px;
+  text-transform:uppercase;color:var(--text-muted);margin-bottom:14px;}
+
+/* KPI CARDS */
+.funnel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));
+  gap:11px;margin-bottom:28px;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:16px;position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s;}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.4);}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--card-accent,var(--blue));}
+.kpi-label{font-size:10px;color:var(--text-muted);font-weight:500;
+  text-transform:uppercase;letter-spacing:.8px;margin-bottom:7px;}
+.kpi-value{font-size:26px;font-weight:700;line-height:1;
+  color:var(--card-accent,var(--text));font-family:'DM Mono',monospace;}
+.kpi-sub{font-size:12px;color:var(--text-muted);margin-top:5px;}
+.kpi-sub .pct{color:var(--card-accent,var(--blue));font-weight:600;}
+
+/* FUNNEL */
+.funnel-visual{background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:22px;margin-bottom:28px;}
+.funnel-bar-row{display:flex;align-items:center;margin-bottom:9px;gap:10px;}
+.funnel-bar-label{width:130px;font-size:12px;color:var(--text-muted);
+  text-align:right;flex-shrink:0;}
+.funnel-bar-wrap{flex:1;background:var(--surface2);border-radius:6px;
+  height:26px;overflow:hidden;}
+.funnel-bar-fill{height:100%;border-radius:6px;display:flex;align-items:center;
+  padding-left:10px;font-size:11px;font-weight:600;color:#fff;min-width:50px;
+  transition:width .8s cubic-bezier(.25,.46,.45,.94);}
+.funnel-bar-count{width:80px;font-size:13px;font-weight:600;
+  font-family:'DM Mono',monospace;color:var(--text);flex-shrink:0;}
+.funnel-bar-pct{width:68px;font-size:11px;color:var(--text-muted);flex-shrink:0;}
+
+/* TABS */
+.tabs-row{display:flex;gap:4px;margin-bottom:18px;
+  border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.tab-btn{background:none;border:none;color:var(--text-muted);
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;
+  padding:9px 15px;cursor:pointer;border-radius:8px 8px 0 0;
+  transition:all .15s;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.tab-btn:hover{color:var(--text);background:var(--surface2);}
+.tab-btn.active{color:var(--blue);border-bottom-color:var(--blue);
+  background:rgba(88,166,255,.07);}
+.dim-panel{display:none;}
+.dim-panel.active{display:block;}
+
+/* DIM LAYOUT */
+.dim-layout{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+@media(max-width:1100px){.dim-layout{grid-template-columns:1fr;}}
+.chart-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:18px;}
+.chart-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px;}
+.chart-wrap{position:relative;height:260px;}
+
+/* KPI PILLS */
+.kpi-selector{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.kpi-pill{background:var(--surface2);border:1px solid var(--border);
+  border-radius:20px;padding:4px 11px;font-size:11px;font-weight:500;
+  color:var(--text-muted);cursor:pointer;transition:all .15s;}
+.kpi-pill:hover{border-color:var(--blue);color:var(--text);}
+.kpi-pill.active{background:var(--accent);border-color:var(--blue);color:#fff;}
+
+/* TABLE */
+.dim-table-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;overflow:hidden;grid-column:1/-1;}
+.dim-table-header{padding:13px 18px;border-bottom:1px solid var(--border);
+  font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between;}
+.table-scroll{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead th{background:var(--surface2);color:var(--text-muted);font-weight:600;
+  font-size:10px;text-transform:uppercase;letter-spacing:.6px;
+  padding:9px 12px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
+thead th:first-child,thead th:nth-child(2),thead th:nth-child(3){text-align:left;}
+tbody tr{border-bottom:1px solid rgba(48,54,61,.5);transition:background .1s;}
+tbody tr:hover{background:rgba(88,166,255,.05);}
+tbody td{padding:8px 12px;text-align:right;color:var(--text);
+  font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap;}
+tbody td:first-child{text-align:left;font-family:'DM Sans',sans-serif;
+  font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;}
+tbody td.city-col,tbody td.mgr-col{text-align:left;font-family:'DM Sans',sans-serif;
+  font-size:11px;color:var(--text-muted);max-width:130px;
+  overflow:hidden;text-overflow:ellipsis;}
+.pct-cell{color:var(--blue);}
+.red-warn{color:var(--red)!important;}
+
+/* INSIGHTS */
+.insights-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;
+  margin-top:18px;grid-column:1/-1;}
+.insight-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:16px;}
+.insight-card.strong{border-color:rgba(63,185,80,.3);}
+.insight-card.weak{border-color:rgba(248,81,73,.3);}
+.insight-title{font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.8px;margin-bottom:10px;}
+.insight-card.strong .insight-title{color:var(--green);}
+.insight-card.weak   .insight-title{color:var(--red);}
+.insight-item{font-size:12px;color:var(--text-muted);padding:5px 0;
+  border-bottom:1px solid var(--border);display:flex;gap:7px;align-items:flex-start;}
+.insight-item:last-child{border-bottom:none;}
+</style>
+</head>
+<body>
+
+<div class="top-header">
+  <h1>Scrubbing &amp; Calling <span>Dashboard</span></h1>
+  <div class="month-selector-wrap">
+    <span class="month-selector-label">Month:</span>
+    <div class="month-pills" id="monthPills"></div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="section-title" id="currentMonthLabel">Loading...</div>
+  <div class="funnel-grid" id="kpiCards"></div>
+  <div class="funnel-visual">
+    <div class="section-title" style="margin-bottom:16px">Pipeline Funnel</div>
+    <div id="funnelBars"></div>
+  </div>
+  <div class="section-title">Dimension-wise Breakdown</div>
+  <div class="tabs-row" id="dimTabs"></div>
+  <div id="dimPanels"></div>
+</div>
+
+<script>
+/* __MONTHS_DATA_START__ */
+const ALL_MONTHS_DATA = {"April-2026": {"overall": {"total": 35957, "workable": 18537, "workable_p": 51.6, "callable": 14561, "callable_p": 78.6, "touched": 14561, "touched_p": 100.0, "connected": 4055, "connected_p": 27.8, "avg_attempts": 7.3, "acq_c": 1453, "acq_p": 2157, "conv_callable": 10.0, "conv_connected": 35.8}, "dims": {"source": [{"label": "Magazine", "total": 13101, "workable": 2255, "workable_p": 17.2, "callable": 1629, "callable_p": 72.2, "touched": 1629, "touched_p": 100.0, "connected": 910, "connected_p": 55.9, "avg_attempts": 6.43, "acq_c": 806, "acq_p": 1054, "conv_callable": 49.5, "conv_connected": 88.6}, {"label": "To Let Board", "total": 9343, "workable": 7078, "workable_p": 75.8, "callable": 5650, "callable_p": 79.8, "touched": 5650, "touched_p": 100.0, "connected": 1385, "connected_p": 24.5, "avg_attempts": 7.38, "acq_c": 324, "acq_p": 538, "conv_callable": 5.7, "conv_connected": 23.4}, {"label": "Social Media/Chat Groups (WA/TG/FB)/Internet", "total": 6016, "workable": 3696, "workable_p": 61.4, "callable": 2699, "callable_p": 73.0, "touched": 2699, "touched_p": 100.0, "connected": 624, "connected_p": 23.1, "avg_attempts": 7.01, "acq_c": 82, "acq_p": 145, "conv_callable": 3.0, "conv_connected": 13.1}, {"label": "Google Map", "total": 2965, "workable": 2591, "workable_p": 87.4, "callable": 2247, "callable_p": 86.7, "touched": 2247, "touched_p": 100.0, "connected": 598, "connected_p": 26.6, "avg_attempts": 7.43, "acq_c": 132, "acq_p": 247, "conv_callable": 5.9, "conv_connected": 22.1}, {"label": "Newspaper", "total": 1966, "workable": 1168, "workable_p": 59.4, "callable": 900, "callable_p": 77.1, "touched": 900, "touched_p": 100.0, "connected": 202, "connected_p": 22.4, "avg_attempts": 7.84, "acq_c": 42, "acq_p": 67, "conv_callable": 4.7, "conv_connected": 20.8}, {"label": "References", "total": 1457, "workable": 991, "workable_p": 68.0, "callable": 814, "callable_p": 82.1, "touched": 814, "touched_p": 100.0, "connected": 196, "connected_p": 24.1, "avg_attempts": 7.58, "acq_c": 38, "acq_p": 59, "conv_callable": 4.7, "conv_connected": 19.4}, {"label": "Society Manager/Guard", "total": 1026, "workable": 686, "workable_p": 66.9, "callable": 583, "callable_p": 85.0, "touched": 583, "touched_p": 100.0, "connected": 111, "connected_p": 19.0, "avg_attempts": 8.89, "acq_c": 22, "acq_p": 39, "conv_callable": 3.8, "conv_connected": 19.8}, {"label": "Internet", "total": 83, "workable": 72, "workable_p": 86.7, "callable": 39, "callable_p": 54.2, "touched": 39, "touched_p": 100.0, "connected": 29, "connected_p": 74.4, "avg_attempts": 1.0, "acq_c": 7, "acq_p": 8, "conv_callable": 17.9, "conv_connected": 24.1}], "data_city": [{"label": "(Blank)", "total": 15646, "workable": 4856, "workable_p": 31.0, "callable": 3878, "callable_p": 79.9, "touched": 3878, "touched_p": 100.0, "connected": 1531, "connected_p": 39.5, "avg_attempts": 6.94, "acq_c": 945, "acq_p": 1309, "conv_callable": 24.4, "conv_connected": 61.7}, {"label": "Pune", "total": 4011, "workable": 2449, "workable_p": 61.1, "callable": 1961, "callable_p": 80.1, "touched": 1961, "touched_p": 100.0, "connected": 492, "connected_p": 25.1, "avg_attempts": 6.99, "acq_c": 76, "acq_p": 131, "conv_callable": 3.9, "conv_connected": 15.4}, {"label": "Gurgaon", "total": 3799, "workable": 1891, "workable_p": 49.8, "callable": 1429, "callable_p": 75.6, "touched": 1429, "touched_p": 100.0, "connected": 284, "connected_p": 19.9, "avg_attempts": 7.76, "acq_c": 49, "acq_p": 84, "conv_callable": 3.4, "conv_connected": 17.3}, {"label": "Delhi", "total": 3081, "workable": 2252, "workable_p": 73.1, "callable": 1920, "callable_p": 85.3, "touched": 1920, "touched_p": 100.0, "connected": 525, "connected_p": 27.3, "avg_attempts": 7.4, "acq_c": 144, "acq_p": 239, "conv_callable": 7.5, "conv_connected": 27.4}, {"label": "Mumbai", "total": 2954, "workable": 2139, "workable_p": 72.4, "callable": 1542, "callable_p": 72.1, "touched": 1542, "touched_p": 100.0, "connected": 304, "connected_p": 19.7, "avg_attempts": 7.7, "acq_c": 33, "acq_p": 58, "conv_callable": 2.1, "conv_connected": 10.9}, {"label": "ROI", "total": 1622, "workable": 1162, "workable_p": 71.6, "callable": 857, "callable_p": 73.8, "touched": 857, "touched_p": 100.0, "connected": 199, "connected_p": 23.2, "avg_attempts": 7.5, "acq_c": 49, "acq_p": 77, "conv_callable": 5.7, "conv_connected": 24.6}, {"label": "Chennai", "total": 1373, "workable": 1089, "workable_p": 79.3, "callable": 837, "callable_p": 76.9, "touched": 837, "touched_p": 100.0, "connected": 190, "connected_p": 22.7, "avg_attempts": 7.12, "acq_c": 35, "acq_p": 61, "conv_callable": 4.2, "conv_connected": 18.4}, {"label": "Bangalore", "total": 786, "workable": 727, "workable_p": 92.5, "callable": 638, "callable_p": 87.8, "touched": 638, "touched_p": 100.0, "connected": 177, "connected_p": 27.7, "avg_attempts": 6.65, "acq_c": 34, "acq_p": 54, "conv_callable": 5.3, "conv_connected": 19.2}, {"label": "Kolkata", "total": 578, "workable": 477, "workable_p": 82.5, "callable": 350, "callable_p": 73.4, "touched": 350, "touched_p": 100.0, "connected": 82, "connected_p": 23.4, "avg_attempts": 8.6, "acq_c": 13, "acq_p": 20, "conv_callable": 3.7, "conv_connected": 15.9}, {"label": "Ghaziabad", "total": 378, "workable": 256, "workable_p": 67.7, "callable": 180, "callable_p": 70.3, "touched": 180, "touched_p": 100.0, "connected": 40, "connected_p": 22.2, "avg_attempts": 7.44, "acq_c": 12, "acq_p": 21, "conv_callable": 6.7, "conv_connected": 30.0}, {"label": "Hyderabad", "total": 366, "workable": 272, "workable_p": 74.3, "callable": 219, "callable_p": 80.5, "touched": 219, "touched_p": 100.0, "connected": 60, "connected_p": 27.4, "avg_attempts": 7.33, "acq_c": 13, "acq_p": 21, "conv_callable": 5.9, "conv_connected": 21.7}, {"label": "Greater Noida", "total": 347, "workable": 241, "workable_p": 69.5, "callable": 221, "callable_p": 91.7, "touched": 221, "touched_p": 100.0, "connected": 34, "connected_p": 15.4, "avg_attempts": 9.14, "acq_c": 3, "acq_p": 5, "conv_callable": 1.4, "conv_connected": 8.8}, {"label": "Noida", "total": 318, "workable": 195, "workable_p": 61.3, "callable": 146, "callable_p": 74.9, "touched": 146, "touched_p": 100.0, "connected": 49, "connected_p": 33.6, "avg_attempts": 7.01, "acq_c": 24, "acq_p": 41, "conv_callable": 16.4, "conv_connected": 49.0}, {"label": "Vadodara", "total": 289, "workable": 187, "workable_p": 64.7, "callable": 131, "callable_p": 70.1, "touched": 131, "touched_p": 100.0, "connected": 29, "connected_p": 22.1, "avg_attempts": 7.4, "acq_c": 9, "acq_p": 16, "conv_callable": 6.9, "conv_connected": 31.0}, {"label": "Faridabad", "total": 225, "workable": 204, "workable_p": 90.7, "callable": 161, "callable_p": 78.9, "touched": 161, "touched_p": 100.0, "connected": 35, "connected_p": 21.7, "avg_attempts": 7.78, "acq_c": 8, "acq_p": 13, "conv_callable": 5.0, "conv_connected": 22.9}, {"label": "Ahmedabad", "total": 179, "workable": 136, "workable_p": 76.0, "callable": 87, "callable_p": 64.0, "touched": 87, "touched_p": 100.0, "connected": 22, "connected_p": 25.3, "avg_attempts": 7.06, "acq_c": 6, "acq_p": 7, "conv_callable": 6.9, "conv_connected": 27.3}, {"label": "Chandigarh", "total": 5, "workable": 4, "workable_p": 80.0, "callable": 4, "callable_p": 100.0, "touched": 4, "touched_p": 100.0, "connected": 2, "connected_p": 50.0, "avg_attempts": 4.75, "acq_c": 0, "acq_p": 0, "conv_callable": 0.0, "conv_connected": 0.0}], "verifier_city": [{"label": "Mumbai", "total": 17901, "workable": 6032, "workable_p": 33.7, "callable": 4469, "callable_p": 74.1, "touched": 4469, "touched_p": 100.0, "connected": 1584, "connected_p": 35.4, "avg_attempts": 6.85, "acq_c": 895, "acq_p": 1202, "conv_callable": 20.0, "conv_connected": 56.5}, {"label": "Gurgaon", "total": 6288, "workable": 4435, "workable_p": 70.5, "callable": 3647, "callable_p": 82.2, "touched": 3647, "touched_p": 100.0, "connected": 900, "connected_p": 24.7, "avg_attempts": 7.52, "acq_c": 191, "acq_p": 349, "conv_callable": 5.2, "conv_connected": 21.2}, {"label": "Pune", "total": 2601, "workable": 1654, "workable_p": 63.6, "callable": 1233, "callable_p": 74.5, "touched": 1233, "touched_p": 100.0, "connected": 276, "connected_p": 22.4, "avg_attempts": 7.64, "acq_c": 55, "acq_p": 91, "conv_callable": 4.5, "conv_connected": 19.9}, {"label": "New Delhi", "total": 2593, "workable": 1859, "workable_p": 71.7, "callable": 1624, "callable_p": 87.4, "touched": 1624, "touched_p": 100.0, "connected": 459, "connected_p": 28.3, "avg_attempts": 7.31, "acq_c": 136, "acq_p": 227, "conv_callable": 8.4, "conv_connected": 29.6}, {"label": "Noida", "total": 1664, "workable": 1364, "workable_p": 82.0, "callable": 1082, "callable_p": 79.3, "touched": 1082, "touched_p": 100.0, "connected": 222, "connected_p": 20.5, "avg_attempts": 7.92, "acq_c": 51, "acq_p": 86, "conv_callable": 4.7, "conv_connected": 23.0}, {"label": "Ahmedabad", "total": 1534, "workable": 568, "workable_p": 37.0, "callable": 444, "callable_p": 78.2, "touched": 444, "touched_p": 100.0, "connected": 103, "connected_p": 23.2, "avg_attempts": 7.39, "acq_c": 23, "acq_p": 36, "conv_callable": 5.2, "conv_connected": 22.3}, {"label": "Chennai", "total": 1374, "workable": 1089, "workable_p": 79.3, "callable": 837, "callable_p": 76.9, "touched": 837, "touched_p": 100.0, "connected": 190, "connected_p": 22.7, "avg_attempts": 7.12, "acq_c": 34, "acq_p": 60, "conv_callable": 4.1, "conv_connected": 17.9}, {"label": "Kolkata", "total": 713, "workable": 566, "workable_p": 79.4, "callable": 415, "callable_p": 73.3, "touched": 415, "touched_p": 100.0, "connected": 97, "connected_p": 23.4, "avg_attempts": 8.47, "acq_c": 17, "acq_p": 26, "conv_callable": 4.1, "conv_connected": 17.5}, {"label": "Bangalore", "total": 583, "workable": 527, "workable_p": 90.4, "callable": 452, "callable_p": 85.8, "touched": 452, "touched_p": 100.0, "connected": 128, "connected_p": 28.3, "avg_attempts": 6.62, "acq_c": 27, "acq_p": 41, "conv_callable": 6.0, "conv_connected": 21.1}, {"label": "Hyderabad", "total": 362, "workable": 269, "workable_p": 74.3, "callable": 218, "callable_p": 81.0, "touched": 218, "touched_p": 100.0, "connected": 60, "connected_p": 27.5, "avg_attempts": 7.33, "acq_c": 13, "acq_p": 21, "conv_callable": 6.0, "conv_connected": 21.7}, {"label": "Vadodara", "total": 344, "workable": 174, "workable_p": 50.6, "callable": 140, "callable_p": 80.5, "touched": 140, "touched_p": 100.0, "connected": 36, "connected_p": 25.7, "avg_attempts": 7.48, "acq_c": 11, "acq_p": 18, "conv_callable": 7.9, "conv_connected": 30.6}], "manager": [{"label": "Pankaj Shashikant Shah", "total": 19631, "workable": 7040, "workable_p": 35.9, "callable": 5245, "callable_p": 74.5, "touched": 5245, "touched_p": 100.0, "connected": 1744, "connected_p": 33.3, "avg_attempts": 7.05, "acq_c": 921, "acq_p": 1247, "conv_callable": 17.6, "conv_connected": 52.8}, {"label": "Aman Deep Dhayal", "total": 6288, "workable": 4435, "workable_p": 70.5, "callable": 3647, "callable_p": 82.2, "touched": 3647, "touched_p": 100.0, "connected": 900, "connected_p": 24.7, "avg_attempts": 7.52, "acq_c": 191, "acq_p": 349, "conv_callable": 5.2, "conv_connected": 21.2}, {"label": "Kanika Narang", "total": 3197, "workable": 2535, "workable_p": 79.3, "callable": 1907, "callable_p": 75.2, "touched": 1907, "touched_p": 100.0, "connected": 428, "connected_p": 22.4, "avg_attempts": 7.22, "acq_c": 88, "acq_p": 146, "conv_callable": 4.6, "conv_connected": 20.6}, {"label": "Manoj Sharma", "total": 2593, "workable": 1859, "workable_p": 71.7, "callable": 1624, "callable_p": 87.4, "touched": 1624, "touched_p": 100.0, "connected": 459, "connected_p": 28.3, "avg_attempts": 7.31, "acq_c": 136, "acq_p": 227, "conv_callable": 8.4, "conv_connected": 29.6}, {"label": "Kanishk Doshi", "total": 1878, "workable": 742, "workable_p": 39.5, "callable": 584, "callable_p": 78.7, "touched": 584, "touched_p": 100.0, "connected": 139, "connected_p": 23.8, "avg_attempts": 7.41, "acq_c": 34, "acq_p": 54, "conv_callable": 5.8, "conv_connected": 24.5}, {"label": "Vineet Kumar Nair", "total": 945, "workable": 796, "workable_p": 84.2, "callable": 670, "callable_p": 84.2, "touched": 670, "touched_p": 100.0, "connected": 188, "connected_p": 28.1, "avg_attempts": 6.85, "acq_c": 40, "acq_p": 62, "conv_callable": 6.0, "conv_connected": 21.3}, {"label": "Prasun Kumar Banerjee", "total": 713, "workable": 566, "workable_p": 79.4, "callable": 415, "callable_p": 73.3, "touched": 415, "touched_p": 100.0, "connected": 97, "connected_p": 23.4, "avg_attempts": 8.47, "acq_c": 17, "acq_p": 26, "conv_callable": 4.1, "conv_connected": 17.5}, {"label": "Bhavesh Gupta", "total": 704, "workable": 556, "workable_p": 79.0, "callable": 461, "callable_p": 82.9, "touched": 461, "touched_p": 100.0, "connected": 96, "connected_p": 20.8, "avg_attempts": 8.2, "acq_c": 26, "acq_p": 46, "conv_callable": 5.6, "conv_connected": 27.1}, {"label": "Shahabuddin K", "total": 8, "workable": 8, "workable_p": 100.0, "callable": 8, "callable_p": 100.0, "touched": 8, "touched_p": 100.0, "connected": 4, "connected_p": 50.0, "avg_attempts": 3.5, "acq_c": 0, "acq_p": 0, "conv_callable": 0.0, "conv_connected": 0.0}], "data_source": [{"label": "Owner Supply Form", "total": 20311, "workable": 13681, "workable_p": 67.4, "callable": 10683, "callable_p": 78.1, "touched": 10683, "touched_p": 100.0, "connected": 2524, "connected_p": 23.6, "avg_attempts": 7.43, "acq_c": 508, "acq_p": 848, "conv_callable": 4.8, "conv_connected": 20.1}, {"label": "Owner Supply Form - Techno", "total": 15646, "workable": 4856, "workable_p": 31.0, "callable": 3878, "callable_p": 79.9, "touched": 3878, "touched_p": 100.0, "connected": 1531, "connected_p": 39.5, "avg_attempts": 6.94, "acq_c": 945, "acq_p": 1309, "conv_callable": 24.4, "conv_connected": 61.7}], "verifier": [{"label": "Sanjay Yadav", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 13205, "workable": 2452, "workable_p": 18.6, "callable": 1843, "callable_p": 75.2, "touched": 1843, "touched_p": 100.0, "connected": 989, "connected_p": 53.7, "avg_attempts": 6.27, "acq_c": 814, "acq_p": 1070, "conv_callable": 44.2, "conv_connected": 82.3}, {"label": "Patrick", "verifier_city": "Gurgaon", "manager": "Aman Deep Dhayal", "total": 2965, "workable": 2591, "workable_p": 87.4, "callable": 2247, "callable_p": 86.7, "touched": 2247, "touched_p": 100.0, "connected": 598, "connected_p": 26.6, "avg_attempts": 7.43, "acq_c": 132, "acq_p": 247, "conv_callable": 5.9, "conv_connected": 22.1}, {"label": "Amit Solanki", "verifier_city": "Gurgaon", "manager": "Aman Deep Dhayal", "total": 1234, "workable": 634, "workable_p": 51.4, "callable": 449, "callable_p": 70.8, "touched": 449, "touched_p": 100.0, "connected": 121, "connected_p": 26.9, "avg_attempts": 6.92, "acq_c": 28, "acq_p": 49, "conv_callable": 6.2, "conv_connected": 23.1}, {"label": "Neeraj Kumar", "verifier_city": "New Delhi", "manager": "Manoj Sharma", "total": 1170, "workable": 897, "workable_p": 76.7, "callable": 821, "callable_p": 91.5, "touched": 821, "touched_p": 100.0, "connected": 245, "connected_p": 29.8, "avg_attempts": 7.35, "acq_c": 76, "acq_p": 125, "conv_callable": 9.3, "conv_connected": 31.0}, {"label": "s manikandan", "verifier_city": "Chennai", "manager": "Kanika Narang", "total": 772, "workable": 559, "workable_p": 72.4, "callable": 449, "callable_p": 80.3, "touched": 449, "touched_p": 100.0, "connected": 107, "connected_p": 23.8, "avg_attempts": 6.95, "acq_c": 18, "acq_p": 32, "conv_callable": 4.0, "conv_connected": 16.8}, {"label": "Firoz Khan", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 715, "workable": 693, "workable_p": 96.9, "callable": 414, "callable_p": 59.7, "touched": 414, "touched_p": 100.0, "connected": 84, "connected_p": 20.3, "avg_attempts": 7.6, "acq_c": 23, "acq_p": 33, "conv_callable": 5.6, "conv_connected": 27.4}, {"label": "Imran Khan", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 696, "workable": 601, "workable_p": 86.4, "callable": 292, "callable_p": 48.6, "touched": 292, "touched_p": 100.0, "connected": 39, "connected_p": 13.4, "avg_attempts": 8.09, "acq_c": 4, "acq_p": 7, "conv_callable": 1.4, "conv_connected": 10.3}, {"label": "Parekh Chirag Harishbhai", "verifier_city": "Ahmedabad", "manager": "Kanishk Doshi", "total": 691, "workable": 401, "workable_p": 58.0, "callable": 328, "callable_p": 81.8, "touched": 328, "touched_p": 100.0, "connected": 72, "connected_p": 22.0, "avg_attempts": 7.66, "acq_c": 14, "acq_p": 22, "conv_callable": 4.3, "conv_connected": 19.4}, {"label": "Kiran Manere", "verifier_city": "Pune", "manager": "Pankaj Shashikant Shah", "total": 662, "workable": 540, "workable_p": 81.6, "callable": 422, "callable_p": 78.1, "touched": 422, "touched_p": 100.0, "connected": 86, "connected_p": 20.4, "avg_attempts": 8.64, "acq_c": 15, "acq_p": 27, "conv_callable": 3.6, "conv_connected": 17.4}, {"label": "jignesh harsora", "verifier_city": "Ahmedabad", "manager": "Kanishk Doshi", "total": 626, "workable": 0, "workable_p": 0.0, "callable": 0, "callable_p": 0.0, "touched": 0, "touched_p": 0.0, "connected": 0, "connected_p": 0.0, "avg_attempts": 0.0, "acq_c": 0, "acq_p": 0, "conv_callable": 0.0, "conv_connected": 0.0}, {"label": "dinesh vinayagam", "verifier_city": "Chennai", "manager": "Kanika Narang", "total": 594, "workable": 522, "workable_p": 87.9, "callable": 380, "callable_p": 72.8, "touched": 380, "touched_p": 100.0, "connected": 79, "connected_p": 20.8, "avg_attempts": 7.39, "acq_c": 16, "acq_p": 28, "conv_callable": 4.2, "conv_connected": 20.3}, {"label": "Sailendra Sharma", "verifier_city": "Noida", "manager": "Kanika Narang", "total": 523, "workable": 434, "workable_p": 83.0, "callable": 327, "callable_p": 75.3, "touched": 327, "touched_p": 100.0, "connected": 59, "connected_p": 18.0, "avg_attempts": 7.81, "acq_c": 7, "acq_p": 13, "conv_callable": 2.1, "conv_connected": 11.9}, {"label": "Sunny Dayal Pandey", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 484, "workable": 387, "workable_p": 80.0, "callable": 250, "callable_p": 64.6, "touched": 250, "touched_p": 100.0, "connected": 84, "connected_p": 33.6, "avg_attempts": 5.95, "acq_c": 11, "acq_p": 15, "conv_callable": 4.4, "conv_connected": 13.1}, {"label": "Yashwant Kamble", "verifier_city": "Pune", "manager": "Kanika Narang", "total": 478, "workable": 353, "workable_p": 73.8, "callable": 266, "callable_p": 75.4, "touched": 266, "touched_p": 100.0, "connected": 79, "connected_p": 29.7, "avg_attempts": 6.69, "acq_c": 21, "acq_p": 33, "conv_callable": 7.9, "conv_connected": 26.6}, {"label": "surender singh", "verifier_city": "Gurgaon", "manager": "Aman Deep Dhayal", "total": 471, "workable": 306, "workable_p": 65.0, "callable": 290, "callable_p": 94.8, "touched": 290, "touched_p": 100.0, "connected": 38, "connected_p": 13.1, "avg_attempts": 7.45, "acq_c": 4, "acq_p": 8, "conv_callable": 1.4, "conv_connected": 10.5}, {"label": "sahil kadam", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 448, "workable": 316, "workable_p": 70.5, "callable": 299, "callable_p": 94.6, "touched": 299, "touched_p": 100.0, "connected": 88, "connected_p": 29.4, "avg_attempts": 6.21, "acq_c": 8, "acq_p": 15, "conv_callable": 2.7, "conv_connected": 9.1}, {"label": "Yatesh Ghume", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 446, "workable": 359, "workable_p": 80.5, "callable": 348, "callable_p": 96.9, "touched": 348, "touched_p": 100.0, "connected": 61, "connected_p": 17.5, "avg_attempts": 7.5, "acq_c": 3, "acq_p": 6, "conv_callable": 0.9, "conv_connected": 4.9}, {"label": "Pawar Vinayak", "verifier_city": "Pune", "manager": "Pankaj Shashikant Shah", "total": 443, "workable": 84, "workable_p": 19.0, "callable": 33, "callable_p": 39.3, "touched": 33, "touched_p": 100.0, "connected": 3, "connected_p": 9.1, "avg_attempts": 7.36, "acq_c": 0, "acq_p": 0, "conv_callable": 0.0, "conv_connected": 0.0}, {"label": "Amar Sanjiv Vadicherla", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 427, "workable": 258, "workable_p": 60.4, "callable": 211, "callable_p": 81.8, "touched": 211, "touched_p": 100.0, "connected": 54, "connected_p": 25.6, "avg_attempts": 7.44, "acq_c": 7, "acq_p": 10, "conv_callable": 3.3, "conv_connected": 13.0}, {"label": "Shinde Sushil Shilas", "verifier_city": "Pune", "manager": "Kanika Narang", "total": 393, "workable": 293, "workable_p": 74.6, "callable": 191, "callable_p": 65.2, "touched": 191, "touched_p": 100.0, "connected": 37, "connected_p": 19.4, "avg_attempts": 6.65, "acq_c": 8, "acq_p": 13, "conv_callable": 4.2, "conv_connected": 21.6}, {"label": "Vikas Keskar", "verifier_city": "Pune", "manager": "Pankaj Shashikant Shah", "total": 383, "workable": 348, "workable_p": 90.9, "callable": 316, "callable_p": 90.8, "touched": 316, "touched_p": 100.0, "connected": 70, "connected_p": 22.2, "avg_attempts": 7.66, "acq_c": 11, "acq_p": 18, "conv_callable": 3.5, "conv_connected": 15.7}, {"label": "Atul Ramchandra Mali", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 344, "workable": 159, "workable_p": 46.2, "callable": 109, "callable_p": 68.6, "touched": 109, "touched_p": 100.0, "connected": 27, "connected_p": 24.8, "avg_attempts": 6.87, "acq_c": 3, "acq_p": 5, "conv_callable": 2.8, "conv_connected": 11.1}, {"label": "shaikh aaqibjaved", "verifier_city": "Vadodara", "manager": "Kanishk Doshi", "total": 344, "workable": 174, "workable_p": 50.6, "callable": 140, "callable_p": 80.5, "touched": 140, "touched_p": 100.0, "connected": 36, "connected_p": 25.7, "avg_attempts": 7.48, "acq_c": 11, "acq_p": 18, "conv_callable": 7.9, "conv_connected": 30.6}, {"label": "anurag1", "verifier_city": "New Delhi", "manager": "Manoj Sharma", "total": 324, "workable": 274, "workable_p": 84.6, "callable": 230, "callable_p": 83.9, "touched": 230, "touched_p": 100.0, "connected": 68, "connected_p": 29.6, "avg_attempts": 6.8, "acq_c": 11, "acq_p": 21, "conv_callable": 4.8, "conv_connected": 16.2}, {"label": "Upender Kumar Pal", "verifier_city": "New Delhi", "manager": "Manoj Sharma", "total": 319, "workable": 233, "workable_p": 73.0, "callable": 189, "callable_p": 81.1, "touched": 189, "touched_p": 100.0, "connected": 54, "connected_p": 28.6, "avg_attempts": 5.85, "acq_c": 15, "acq_p": 25, "conv_callable": 7.9, "conv_connected": 27.8}, {"label": "Sandeep Sharma", "verifier_city": "Noida", "manager": "Kanika Narang", "total": 314, "workable": 275, "workable_p": 87.6, "callable": 225, "callable_p": 81.8, "touched": 225, "touched_p": 100.0, "connected": 45, "connected_p": 20.0, "avg_attempts": 7.91, "acq_c": 5, "acq_p": 7, "conv_callable": 2.2, "conv_connected": 11.1}, {"label": "Partha Senapati", "verifier_city": "Kolkata", "manager": "Prasun Kumar Banerjee", "total": 288, "workable": 213, "workable_p": 74.0, "callable": 168, "callable_p": 78.9, "touched": 168, "touched_p": 100.0, "connected": 53, "connected_p": 31.5, "avg_attempts": 7.39, "acq_c": 12, "acq_p": 18, "conv_callable": 7.1, "conv_connected": 22.6}, {"label": "Subodh Kumar Shrivastava", "verifier_city": "New Delhi", "manager": "Manoj Sharma", "total": 282, "workable": 120, "workable_p": 42.6, "callable": 107, "callable_p": 89.2, "touched": 107, "touched_p": 100.0, "connected": 32, "connected_p": 29.9, "avg_attempts": 8.38, "acq_c": 9, "acq_p": 18, "conv_callable": 8.4, "conv_connected": 28.1}, {"label": "Sunil Kumar", "verifier_city": "Gurgaon", "manager": "Aman Deep Dhayal", "total": 280, "workable": 261, "workable_p": 93.2, "callable": 257, "callable_p": 98.5, "touched": 257, "touched_p": 100.0, "connected": 44, "connected_p": 17.1, "avg_attempts": 8.97, "acq_c": 2, "acq_p": 4, "conv_callable": 0.8, "conv_connected": 4.5}, {"label": "Aftab Shaikh", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 270, "workable": 155, "workable_p": 57.4, "callable": 152, "callable_p": 98.1, "touched": 152, "touched_p": 100.0, "connected": 44, "connected_p": 28.9, "avg_attempts": 5.66, "acq_c": 4, "acq_p": 7, "conv_callable": 2.6, "conv_connected": 9.1}, {"label": "arun", "verifier_city": "Bangalore", "manager": "Vineet Kumar Nair", "total": 254, "workable": 236, "workable_p": 92.9, "callable": 212, "callable_p": 89.8, "touched": 212, "touched_p": 100.0, "connected": 59, "connected_p": 27.8, "avg_attempts": 6.69, "acq_c": 10, "acq_p": 16, "conv_callable": 4.7, "conv_connected": 16.9}, {"label": "Ajay Kumar", "verifier_city": "Gurgaon", "manager": "Aman Deep Dhayal", "total": 250, "workable": 147, "workable_p": 58.8, "callable": 118, "callable_p": 80.3, "touched": 118, "touched_p": 100.0, "connected": 35, "connected_p": 29.7, "avg_attempts": 7.05, "acq_c": 10, "acq_p": 19, "conv_callable": 8.5, "conv_connected": 28.6}, {"label": "Jitendra Singh", "verifier_city": "Gurgaon", "manager": "Aman Deep Dhayal", "total": 244, "workable": 216, "workable_p": 88.5, "callable": 169, "callable_p": 78.2, "touched": 169, "touched_p": 100.0, "connected": 37, "connected_p": 21.9, "avg_attempts": 7.81, "acq_c": 9, "acq_p": 14, "conv_callable": 5.3, "conv_connected": 24.3}, {"label": "Vishal Mhaske", "verifier_city": "Pune", "manager": "Pankaj Shashikant Shah", "total": 242, "workable": 36, "workable_p": 14.9, "callable": 5, "callable_p": 13.9, "touched": 5, "touched_p": 100.0, "connected": 1, "connected_p": 20.0, "avg_attempts": 10.6, "acq_c": 0, "acq_p": 0, "conv_callable": 0.0, "conv_connected": 0.0}, {"label": "Subodh Kumar Singh", "verifier_city": "Noida", "manager": "Bhavesh Gupta", "total": 238, "workable": 206, "workable_p": 86.6, "callable": 152, "callable_p": 73.8, "touched": 152, "touched_p": 100.0, "connected": 43, "connected_p": 28.3, "avg_attempts": 6.83, "acq_c": 13, "acq_p": 24, "conv_callable": 8.6, "conv_connected": 30.2}, {"label": "atish mane", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 233, "workable": 214, "workable_p": 91.8, "callable": 200, "callable_p": 93.5, "touched": 200, "touched_p": 100.0, "connected": 53, "connected_p": 26.5, "avg_attempts": 6.71, "acq_c": 7, "acq_p": 13, "conv_callable": 3.5, "conv_connected": 13.2}, {"label": "Naseeb Chand", "verifier_city": "Gurgaon", "manager": "Aman Deep Dhayal", "total": 232, "workable": 98, "workable_p": 42.2, "callable": 46, "callable_p": 46.9, "touched": 46, "touched_p": 100.0, "connected": 11, "connected_p": 23.9, "avg_attempts": 7.22, "acq_c": 1, "acq_p": 2, "conv_callable": 2.2, "conv_connected": 9.1}, {"label": "Purabiya Ambalal", "verifier_city": "Ahmedabad", "manager": "Kanishk Doshi", "total": 217, "workable": 167, "workable_p": 77.0, "callable": 116, "callable_p": 69.5, "touched": 116, "touched_p": 100.0, "connected": 31, "connected_p": 26.7, "avg_attempts": 6.65, "acq_c": 9, "acq_p": 14, "conv_callable": 7.8, "conv_connected": 29.0}, {"label": "sahil sable", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 213, "workable": 178, "workable_p": 83.6, "callable": 128, "callable_p": 71.9, "touched": 128, "touched_p": 100.0, "connected": 23, "connected_p": 18.0, "avg_attempts": 8.52, "acq_c": 1, "acq_p": 2, "conv_callable": 0.8, "conv_connected": 4.3}, {"label": "Sachit Sirohi", "verifier_city": "Noida", "manager": "Bhavesh Gupta", "total": 205, "workable": 195, "workable_p": 95.1, "callable": 189, "callable_p": 96.9, "touched": 189, "touched_p": 100.0, "connected": 25, "connected_p": 13.2, "avg_attempts": 9.58, "acq_c": 1, "acq_p": 1, "conv_callable": 0.5, "conv_connected": 4.0}, {"label": "Pawan Yadav", "verifier_city": "Gurgaon", "manager": "Aman Deep Dhayal", "total": 197, "workable": 22, "workable_p": 11.2, "callable": 17, "callable_p": 77.3, "touched": 17, "touched_p": 100.0, "connected": 1, "connected_p": 5.9, "avg_attempts": 9.35, "acq_c": 0, "acq_p": 0, "conv_callable": 0.0, "conv_connected": 0.0}, {"label": "Nitesh Gond", "verifier_city": "Gurgaon", "manager": "Aman Deep Dhayal", "total": 193, "workable": 22, "workable_p": 11.4, "callable": 11, "callable_p": 50.0, "touched": 11, "touched_p": 100.0, "connected": 2, "connected_p": 18.2, "avg_attempts": 8.82, "acq_c": 0, "acq_p": 0, "conv_callable": 0.0, "conv_connected": 0.0}, {"label": "prakash teekhe", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 190, "workable": 162, "workable_p": 85.3, "callable": 155, "callable_p": 95.7, "touched": 155, "touched_p": 100.0, "connected": 22, "connected_p": 14.2, "avg_attempts": 9.29, "acq_c": 4, "acq_p": 8, "conv_callable": 2.6, "conv_connected": 18.2}, {"label": "Rajesh Singh", "verifier_city": "New Delhi", "manager": "Manoj Sharma", "total": 189, "workable": 153, "workable_p": 81.0, "callable": 111, "callable_p": 72.5, "touched": 111, "touched_p": 100.0, "connected": 35, "connected_p": 31.5, "avg_attempts": 7.78, "acq_c": 16, "acq_p": 22, "conv_callable": 14.4, "conv_connected": 45.7}, {"label": "arnab chowdhury", "verifier_city": "Kolkata", "manager": "Prasun Kumar Banerjee", "total": 169, "workable": 141, "workable_p": 83.4, "callable": 104, "callable_p": 73.8, "touched": 104, "touched_p": 100.0, "connected": 23, "connected_p": 22.1, "avg_attempts": 8.51, "acq_c": 3, "acq_p": 6, "conv_callable": 2.9, "conv_connected": 13.0}, {"label": "sujay aich", "verifier_city": "Kolkata", "manager": "Prasun Kumar Banerjee", "total": 166, "workable": 140, "workable_p": 84.3, "callable": 123, "callable_p": 87.9, "touched": 123, "touched_p": 100.0, "connected": 19, "connected_p": 15.4, "avg_attempts": 9.98, "acq_c": 2, "acq_p": 2, "conv_callable": 1.6, "conv_connected": 10.5}, {"label": "rampelli santhosh", "verifier_city": "Hyderabad", "manager": "Vineet Kumar Nair", "total": 153, "workable": 107, "workable_p": 69.9, "callable": 83, "callable_p": 77.6, "touched": 83, "touched_p": 100.0, "connected": 20, "connected_p": 24.1, "avg_attempts": 7.12, "acq_c": 4, "acq_p": 8, "conv_callable": 4.8, "conv_connected": 20.0}, {"label": "M Venktesh", "verifier_city": "New Delhi", "manager": "Manoj Sharma", "total": 152, "workable": 77, "workable_p": 50.7, "callable": 76, "callable_p": 98.7, "touched": 76, "touched_p": 100.0, "connected": 7, "connected_p": 9.2, "avg_attempts": 10.18, "acq_c": 2, "acq_p": 3, "conv_callable": 2.6, "conv_connected": 28.6}, {"label": "Parasa Babu", "verifier_city": "Hyderabad", "manager": "Vineet Kumar Nair", "total": 137, "workable": 100, "workable_p": 73.0, "callable": 81, "callable_p": 81.0, "touched": 81, "touched_p": 100.0, "connected": 23, "connected_p": 28.4, "avg_attempts": 7.19, "acq_c": 3, "acq_p": 5, "conv_callable": 3.7, "conv_connected": 13.0}, {"label": "suresh kumar", "verifier_city": "Gurgaon", "manager": "Aman Deep Dhayal", "total": 125, "workable": 93, "workable_p": 74.4, "callable": 25, "callable_p": 26.9, "touched": 25, "touched_p": 100.0, "connected": 12, "connected_p": 48.0, "avg_attempts": 9.24, "acq_c": 5, "acq_p": 6, "conv_callable": 20.0, "conv_connected": 41.7}, {"label": "vikas NA", "verifier_city": "Noida", "manager": "Kanika Narang", "total": 123, "workable": 99, "workable_p": 80.5, "callable": 69, "callable_p": 69.7, "touched": 69, "touched_p": 100.0, "connected": 22, "connected_p": 31.9, "avg_attempts": 6.65, "acq_c": 13, "acq_p": 20, "conv_callable": 18.8, "conv_connected": 59.1}, {"label": "avinash deshmukh", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 122, "workable": 67, "workable_p": 54.9, "callable": 48, "callable_p": 71.6, "touched": 48, "touched_p": 100.0, "connected": 9, "connected_p": 18.8, "avg_attempts": 8.1, "acq_c": 4, "acq_p": 7, "conv_callable": 8.3, "conv_connected": 44.4}, {"label": "Pradeep Patil", "verifier_city": "Mumbai", "manager": "Pankaj Shashikant Shah", "total": 108, "workable": 31, "workable_p": 28.7, "callable": 20, "callable_p": 64.5, "touched": 20, "touched_p": 100.0, "connected": 7, "connected_p": 35.0, "avg_attempts": 6.9, "acq_c": 2, "acq_p": 4, "conv_callable": 10.0, "conv_connected": 28.6}, {"label": "thamizh s", "verifier_city": "Bangalore", "manager": "Vineet Kumar Nair", "total": 106, "workable": 90, "workable_p": 84.9, "callable": 74, "callable_p": 82.2, "touched": 74, "touched_p": 100.0, "connected": 27, "connected_p": 36.5, "avg_attempts": 5.96, "acq_c": 9, "acq_p": 14, "conv_callable": 12.2, "conv_connected": 33.3}, {"label": "balamurugan m", "verifier_city": "Bangalore", "manager": "Vineet Kumar Nair", "total": 102, "workable": 89, "workable_p": 87.3, "callable": 71, "callable_p": 79.8, "touched": 71, "touched_p": 100.0, "connected": 16, "connected_p": 22.5, "avg_attempts": 7.23, "acq_c": 2, "acq_p": 2, "conv_callable": 2.8, "conv_connected": 12.5}, {"label": "Rahul Sharma", "verifier_city": "Gurgaon", "manager": "Aman Deep Dhayal", "total": 97, "workable": 45, "workable_p": 46.4, "callable": 18, "callable_p": 40.0, "touched": 18, "touched_p": 100.0, "connected": 1, "connected_p": 5.6, "avg_attempts": 10.33, "acq_c": 0, "acq_p": 0, "conv_callable": 0.0, "conv_connected": 0.0}, {"label": "Sourav Das", "verifier_city": "Kolkata", "manager": "Prasun Kumar Banerjee", "total": 90, "workable": 72, "workable_p": 80.0, "callable": 20, "callable_p": 27.8, "touched": 20, "touched_p": 100.0, "connected": 2, "connected_p": 10.0, "avg_attempts": 8.0, "acq_c": 0, "acq_p": 0, "conv_callable": 0.0, "conv_connected": 0.0}, {"label": "Abhishek A", "verifier_city": "New Delhi", "manager": "Manoj Sharma", "total": 89, "workable": 62, "workable_p": 69.7, "callable": 52, "callable_p": 83.9, "touched": 52, "touched_p": 100.0, "connected": 8, "connected_p": 15.4, "avg_attempts": 7.12, "acq_c": 3, "acq_p": 6, "conv_callable": 5.8, "conv_connected": 37.5}, {"label": "Debashish Choubey", "verifier_city": "Noida", "manager": "Bhavesh Gupta", "total": 84, "workable": 44, "workable_p": 52.4, "callable": 42, "callable_p": 95.5, "touched": 42, "touched_p": 100.0, "connected": 3, "connected_p": 7.1, "avg_attempts": 9.0, "acq_c": 0, "acq_p": 0, "conv_callable": 0.0, "conv_connected": 0.0}, {"label": "devendra kumar", "verifier_city": "Noida", "manager": "Bhavesh Gupta", "total": 84, "workable": 55, "workable_p": 65.5, "callable": 32, "callable_p": 58.2, "touched": 32, "touched_p": 100.0, "connected": 6, "connected_p": 18.8, "avg_attempts": 6.94, "acq_c": 1, "acq_p": 2, "conv_callable": 3.1, "conv_connected": 16.7}, {"label": "Ravi Kiran HV", "verifier_city": "Bangalore", "manager": "Vineet Kumar Nair", "total": 80, "workable": 79, "workable_p": 98.8, "callable": 72, "callable_p": 91.1, "touched": 72, "touched_p": 100.0, "connected": 18, "connected_p": 25.0, "avg_attempts": 6.79, "acq_c": 2, "acq_p": 3, "conv_callable": 2.8, "conv_connected": 11.1}, {"label": "vakiti kishore", "verifier_city": "Hyderabad", "manager": "Vineet Kumar Nair", "total": 72, "workable": 62, "workable_p": 86.1, "callable": 54, "callable_p": 87.1, "touched": 54, "touched_p": 100.0, "connected": 17, "connected_p": 31.5, "avg_attempts": 7.85, "acq_c": 6, "acq_p": 8, "conv_callable": 11.1, "conv_connected": 35.3}, {"label": "Ashish Bisht", "verifier_city": "Noida", "manager": "Bhavesh Gupta", "total": 48, "workable": 35, "workable_p": 72.9, "callable": 32, "callable_p": 91.4, "touched": 32, "touched_p": 100.0, "connected": 12, "connected_p": 37.5, "avg_attempts": 6.47, "acq_c": 5, "acq_p": 10, "conv_callable": 15.6, "conv_connected": 41.7}, {"label": "areef hussain", "verifier_city": "Bangalore", "manager": "Vineet Kumar Nair", "total": 41, "workable": 33, "workable_p": 80.5, "callable": 23, "callable_p": 69.7, "touched": 23, "touched_p": 100.0, "connected": 8, "connected_p": 34.8, "avg_attempts": 5.61, "acq_c": 4, "acq_p": 6, "conv_callable": 17.4, "conv_connected": 50.0}, {"label": "yogesh negi", "verifier_city": "New Delhi", "manager": "Manoj Sharma", "total": 38, "workable": 25, "workable_p": 65.8, "callable": 22, "callable_p": 88.0, "touched": 22, "touched_p": 100.0, "connected": 7, "connected_p": 31.8, "avg_attempts": 6.82, "acq_c": 2, "acq_p": 4, "conv_callable": 9.1, "conv_connected": 28.6}, {"label": "Neeraj", "verifier_city": "New Delhi", "manager": "Manoj Sharma", "total": 30, "workable": 18, "workable_p": 60.0, "callable": 16, "callable_p": 88.9, "touched": 16, "touched_p": 100.0, "connected": 3, "connected_p": 18.8, "avg_attempts": 6.81, "acq_c": 2, "acq_p": 3, "conv_callable": 12.5, "conv_connected": 66.7}, {"label": "Dharmender K", "verifier_city": "Noida", "manager": "Bhavesh Gupta", "total": 27, "workable": 17, "workable_p": 63.0, "callable": 10, "callable_p": 58.8, "touched": 10, "touched_p": 100.0, "connected": 6, "connected_p": 60.0, "avg_attempts": 8.1, "acq_c": 6, "acq_p": 9, "conv_callable": 60.0, "conv_connected": 100.0}, {"label": "shekhar", "verifier_city": "Noida", "manager": "Bhavesh Gupta", "total": 18, "workable": 4, "workable_p": 22.2, "callable": 4, "callable_p": 100.0, "touched": 4, "touched_p": 100.0, "connected": 1, "connected_p": 25.0, "avg_attempts": 11.25, "acq_c": 0, "acq_p": 0, "conv_callable": 0.0, "conv_connected": 0.0}, {"label": "J Thimothy", "verifier_city": "Chennai", "manager": "Shahabuddin K", "total": 8, "workable": 8, "workable_p": 100.0, "callable": 8, "callable_p": 100.0, "touched": 8, "touched_p": 100.0, "connected": 4, "connected_p": 50.0, "avg_attempts": 3.5, "acq_c": 0, "acq_p": 0, "conv_callable": 0.0, "conv_connected": 0.0}]}}};
+/* __MONTHS_DATA_END__ */
+
+const MONTHS_LIST    = ["April-2026"];
+const LATEST_MONTH   = "April-2026";
+
+// ── DIMENSION DEFINITIONS ──
+// verifier tab is separate (has extra city/manager columns)
+const DIMS = [
+  {key:'source',        label:'Source-wise',         hasTeamCols:false},
+  {key:'data_city',     label:'Data City-wise',       hasTeamCols:false},
+  {key:'verifier_city', label:'Verifier City-wise',   hasTeamCols:false},
+  {key:'manager',       label:'Manager-wise',         hasTeamCols:false},
+  {key:'data_source',   label:'Data Source-wise',     hasTeamCols:false},
+  {key:'verifier',      label:'Verifier-wise',        hasTeamCols:true},
+];
+
+const KPI_DEFS = [
+  {key:'workable_p',    label:'Workable %',       color:'#58a6ff'},
+  {key:'callable_p',    label:'Callable %',       color:'#3fb950'},
+  {key:'touched_p',     label:'Touched %',        color:'#d29922'},
+  {key:'connected_p',   label:'Connected %',      color:'#f0883e'},
+  {key:'conv_callable', label:'Conv% (Callable)', color:'#bc8cff'},
+];
+const COUNT_KPI_DEFS = [
+  {key:'total',    label:'Total',     color:'#58a6ff'},
+  {key:'workable', label:'Workable',  color:'#3fb950'},
+  {key:'callable', label:'Callable',  color:'#d29922'},
+  {key:'touched',  label:'Touched',   color:'#f0883e'},
+  {key:'connected',label:'Connected', color:'#bc8cff'},
+  {key:'acq_c',    label:'Acquired',  color:'#39c5cf'},
+];
+
+let activeMonth = LATEST_MONTH;
+let activeKPIs  = {};
+let charts      = {};
+
+function renderMonthPills() {
+  document.getElementById('monthPills').innerHTML = MONTHS_LIST.map(m =>
+    `<div class="month-pill ${m===activeMonth?'active':''}" onclick="switchMonth('${m}')">${m}</div>`
+  ).join('');
+}
+
+function switchMonth(month) {
+  if (!ALL_MONTHS_DATA[month]) return;
+  activeMonth = month;
+  activeKPIs  = {};
+  Object.values(charts).forEach(c=>{try{c.destroy();}catch(e){}});
+  charts = {};
+  renderMonthPills();
+  renderDashboard();
+}
+
+function renderDashboard() {
+  const DATA = ALL_MONTHS_DATA[activeMonth];
+  if (!DATA) return;
+  document.getElementById('currentMonthLabel').textContent =
+    activeMonth + ' — Overall Pipeline KPIs';
+  renderKPICards(DATA);
+  renderFunnel(DATA);
+  renderTabs(DATA);
+}
+
+// ── KPI CARDS  (v9: Acq Properties = count only, no conv sub) ──
+function renderKPICards(DATA) {
+  const o = DATA.overall;
+  const cards = [
+    {label:'Total Submitted', value:o.total,       sub:'',                              accent:'#58a6ff'},
+    {label:'Workable',        value:o.workable,     sub:o.workable_p+'% of Total',      accent:'#3fb950'},
+    {label:'Callable',        value:o.callable,     sub:o.callable_p+'% of Workable',   accent:'#d29922'},
+    {label:'Touched',         value:o.touched,      sub:o.touched_p+'% of Callable',    accent:'#f0883e'},
+    {label:'Connected',       value:o.connected,    sub:o.connected_p+'% of Callable',  accent:'#bc8cff'},
+    {label:'Avg Attempts',    value:o.avg_attempts, sub:'per touched lead',              accent:'#39c5cf'},
+    // Acq Client: show conv% on callable + conv% on connected
+    {label:'Acquired Client', value:o.acq_c,
+      sub:'Conv '+o.conv_callable+'% (Ca) | '+o.conv_connected+'% (Co)',  accent:'#f85149'},
+    // Acq Properties: count only, no conversion
+    {label:'Acq Properties',  value:o.acq_p,        sub:'',                              accent:'#ffa657'},
+  ];
+  document.getElementById('kpiCards').innerHTML = cards.map(c=>`
+    <div class="kpi-card" style="--card-accent:${c.accent}">
+      <div class="kpi-label">${c.label}</div>
+      <div class="kpi-value">${typeof c.value==='number'&&!Number.isInteger(c.value)?c.value.toFixed(2):c.value.toLocaleString()}</div>
+      ${c.sub?`<div class="kpi-sub"><span class="pct">${c.sub}</span></div>`:''}
+    </div>
+  `).join('');
+}
+
+function renderFunnel(DATA) {
+  const o = DATA.overall;
+  function safe(n,d){return d>0?Math.round(n/d*1000)/10:0;}
+  const steps=[
+    {label:'Total Submitted',value:o.total,    pct:100,                       color:'#58a6ff'},
+    {label:'Workable',       value:o.workable,  pct:o.workable_p,              color:'#3fb950'},
+    {label:'Callable',       value:o.callable,  pct:safe(o.callable,o.total),  color:'#d29922'},
+    {label:'Touched',        value:o.touched,   pct:safe(o.touched,o.total),   color:'#f0883e'},
+    {label:'Connected',      value:o.connected, pct:safe(o.connected,o.total), color:'#bc8cff'},
+    {label:'Acquired Client',value:o.acq_c,     pct:safe(o.acq_c,o.total),     color:'#f85149'},
+  ];
+  document.getElementById('funnelBars').innerHTML=steps.map(s=>`
+    <div class="funnel-bar-row">
+      <div class="funnel-bar-label">${s.label}</div>
+      <div class="funnel-bar-wrap">
+        <div class="funnel-bar-fill" style="width:${Math.max(s.pct,2)}%;background:${s.color}">
+          ${s.pct.toFixed(1)}%
+        </div>
+      </div>
+      <div class="funnel-bar-count">${s.value.toLocaleString()}</div>
+      <div class="funnel-bar-pct">${s.pct.toFixed(1)}% of total</div>
+    </div>
+  `).join('');
+}
+
+function renderTabs(DATA) {
+  const tabsRow=document.getElementById('dimTabs');
+  const panelsWrap=document.getElementById('dimPanels');
+  tabsRow.innerHTML=''; panelsWrap.innerHTML='';
+  let firstKey=null;
+  DIMS.forEach(dim=>{
+    const rows=(DATA.dims&&DATA.dims[dim.key])||[];
+    if(!rows.length) return;
+    if(!firstKey) firstKey=dim.key;
+    activeKPIs[dim.key]=activeKPIs[dim.key]||'workable_p';
+    const btn=document.createElement('button');
+    btn.className='tab-btn'+(firstKey===dim.key?' active':'');
+    btn.textContent=dim.label; btn.dataset.dimKey=dim.key;
+    btn.onclick=()=>activateTab(dim.key,DATA);
+    tabsRow.appendChild(btn);
+    const panel=document.createElement('div');
+    panel.className='dim-panel'+(firstKey===dim.key?' active':'');
+    panel.id='panel-'+dim.key;
+    panel.innerHTML=buildPanel(dim,rows);
+    panelsWrap.appendChild(panel);
+  });
+  if(firstKey) setTimeout(()=>initChartsForDim(firstKey,DATA),50);
+}
+
+function activateTab(dimKey,DATA) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.dimKey===dimKey));
+  document.querySelectorAll('.dim-panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+dimKey));
+  setTimeout(()=>initChartsForDim(dimKey,DATA),50);
+}
+
+// ── BUILD PANEL  (v9: verifier tab has city+manager extra cols) ──
+function buildPanel(dim, rows) {
+  const selector=KPI_DEFS.map(k=>
+    `<span class="kpi-pill${k.key==='workable_p'?' active':''}"
+      data-dim="${dim.key}" data-kpi="${k.key}"
+      onclick="selectKPI('${dim.key}','${k.key}',this)">${k.label}</span>`
+  ).join('');
+
+  // Table headers differ for verifier tab
+  let extraTh = '';
+  if(dim.hasTeamCols) {
+    extraTh = '<th>City</th><th>Manager</th>';
+  }
+
+  const tableRows = rows.map(r => {
+    let extraTd = '';
+    if(dim.hasTeamCols) {
+      const warnCls = r.workable_p < 70 && r.total > 0 ? ' red-warn' : '';
+      extraTd = `<td class="city-col${warnCls}">${r.verifier_city||''}</td>
+                 <td class="mgr-col${warnCls}">${r.manager||''}</td>`;
+    }
+    const nameCls = dim.hasTeamCols && r.workable_p<70 && r.total>0 ? ' red-warn' : '';
+    return `<tr>
+      <td class="${nameCls}" title="${r.label}">${r.label}</td>
+      ${extraTd}
+      <td>${r.total.toLocaleString()}</td>
+      <td>${r.workable.toLocaleString()}</td>
+      <td class="pct-cell">${r.workable_p.toFixed(1)}%</td>
+      <td>${r.callable.toLocaleString()}</td>
+      <td class="pct-cell">${r.callable_p.toFixed(1)}%</td>
+      <td>${r.touched.toLocaleString()}</td>
+      <td class="pct-cell">${r.touched_p.toFixed(1)}%</td>
+      <td>${r.connected.toLocaleString()}</td>
+      <td class="pct-cell">${r.connected_p.toFixed(1)}%</td>
+      <td>${r.avg_attempts.toFixed(2)}</td>
+      <td>${r.acq_c.toLocaleString()}</td>
+      <td>${r.acq_p.toLocaleString()}</td>
+      <td class="pct-cell">${r.conv_callable.toFixed(1)}%</td>
+      <td class="pct-cell">${r.conv_connected.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+
+  const dimHeaderLabel = dim.label.replace(/-wise/i,'');
+  const insights=computeInsights(rows);
+
+  return `
+    <div class="dim-layout">
+      <div class="chart-card">
+        <div class="chart-title">% KPI Comparison</div>
+        <div class="kpi-selector">${selector}</div>
+        <div class="chart-wrap"><canvas id="chart-pct-${dim.key}"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Count Overview</div>
+        <div class="chart-wrap"><canvas id="chart-cnt-${dim.key}"></canvas></div>
+      </div>
+      <div class="dim-table-card">
+        <div class="dim-table-header">
+          <span>${dim.label} — Full KPI Table</span>
+          <span style="font-size:11px;color:var(--text-muted)">${rows.length} entries${dim.hasTeamCols?' | 🔴 = Workable% &lt; 70%':''}</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>${dimHeaderLabel}</th>
+              ${extraTh}
+              <th>Total</th><th>Workable</th><th>Wk%</th>
+              <th>Callable</th><th>Ca%</th>
+              <th>Touched</th><th>To%</th>
+              <th>Connected</th><th>Co%</th>
+              <th>Avg Att.</th>
+              <th>Acq Client</th><th>Acq Props</th>
+              <th>Conv%(Ca)</th><th>Conv%(Co)</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      </div>
+      <div class="insights-row">
+        <div class="insight-card strong">
+          <div class="insight-title">★ Strong Points</div>
+          ${insights.strong.map(i=>`<div class="insight-item"><span>✅</span>${i}</div>`).join('')||'<div class="insight-item">No data</div>'}
+        </div>
+        <div class="insight-card weak">
+          <div class="insight-title">⚠ Weak Points</div>
+          ${insights.weak.map(i=>`<div class="insight-item"><span>🔴</span>${i}</div>`).join('')||'<div class="insight-item">No data</div>'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function computeInsights(rows) {
+  const strong=[],weak=[];
+  const checks=[
+    {key:'workable_p',   label:'Workable %',       good:70},
+    {key:'callable_p',   label:'Callable %',        good:50},
+    {key:'touched_p',    label:'Touched %',         good:60},
+    {key:'connected_p',  label:'Connected %',       good:40},
+    {key:'conv_callable',label:'Conv% on Callable', good:5},
+  ];
+  checks.forEach(c=>{
+    const valid=rows.filter(r=>r.total>=5);
+    if(!valid.length) return;
+    const sorted=[...valid].sort((a,b)=>b[c.key]-a[c.key]);
+    const best=sorted[0],worst=sorted[sorted.length-1];
+    if(best[c.key]>0)
+      strong.push(`<b>${best.label}</b> — ${c.label}: <b>${best[c.key].toFixed(1)}%</b>`);
+    if(worst[c.key]<best[c.key])
+      weak.push(`<b>${worst.label}</b> — ${c.label}: <b>${worst[c.key].toFixed(1)}%</b>`);
+  });
+  return {strong:strong.slice(0,5),weak:weak.slice(0,5)};
+}
+
+function initChartsForDim(dimKey,DATA) {
+  const rows=(DATA.dims&&DATA.dims[dimKey])||[];
+  if(!rows.length) return;
+  const labels=rows.map(r=>r.label.length>16?r.label.slice(0,14)+'…':r.label);
+  const selKPI=activeKPIs[dimKey]||'workable_p';
+  const kpiDef=KPI_DEFS.find(k=>k.key===selKPI)||KPI_DEFS[0];
+
+  const pctId='chart-pct-'+dimKey;
+  if(charts[pctId]){try{charts[pctId].destroy();}catch(e){}}
+  const pctCtx=document.getElementById(pctId);
+  if(pctCtx){
+    charts[pctId]=new Chart(pctCtx,{
+      type:'bar',
+      data:{labels,datasets:[{
+        label:kpiDef.label,
+        data:rows.map(r=>r[selKPI]),
+        backgroundColor:rows.map(r=>r[selKPI]>=50?'rgba(63,185,80,.75)':r[selKPI]>=25?'rgba(210,153,34,.75)':'rgba(248,81,73,.75)'),
+        borderColor:rows.map(r=>r[selKPI]>=50?'#3fb950':r[selKPI]>=25?'#d29922':'#f85149'),
+        borderWidth:1.5,borderRadius:4,
+      }]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toFixed(1)}%`}}},
+        scales:{
+          x:{ticks:{color:'#8b949e',font:{size:9},maxRotation:40},grid:{color:'rgba(48,54,61,.5)'}},
+          y:{ticks:{color:'#8b949e',callback:v=>v+'%'},grid:{color:'rgba(48,54,61,.5)'},beginAtZero:true}
+        }
+      }
+    });
+  }
+
+  const cntId='chart-cnt-'+dimKey;
+  if(charts[cntId]){try{charts[cntId].destroy();}catch(e){}}
+  const cntCtx=document.getElementById(cntId);
+  if(cntCtx){
+    charts[cntId]=new Chart(cntCtx,{
+      type:'bar',
+      data:{labels,datasets:COUNT_KPI_DEFS.map(k=>
+        ({label:k.label,data:rows.map(r=>r[k.key]),
+          backgroundColor:k.color+'99',borderColor:k.color,borderWidth:1.5,borderRadius:3})
+      )},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,labels:{color:'#8b949e',font:{size:9},boxWidth:9}}},
+        scales:{
+          x:{ticks:{color:'#8b949e',font:{size:9},maxRotation:40},grid:{color:'rgba(48,54,61,.5)'}},
+          y:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.5)'},beginAtZero:true}
+        }
+      }
+    });
+  }
+}
+
+function selectKPI(dimKey,kpiKey,el) {
+  activeKPIs[dimKey]=kpiKey;
+  document.querySelectorAll(`.kpi-pill[data-dim="${dimKey}"]`)
+    .forEach(p=>p.classList.toggle('active',p.dataset.kpi===kpiKey));
+  const rows=(ALL_MONTHS_DATA[activeMonth].dims&&ALL_MONTHS_DATA[activeMonth].dims[dimKey])||[];
+  const kpiDef=KPI_DEFS.find(k=>k.key===kpiKey)||KPI_DEFS[0];
+  const pctId='chart-pct-'+dimKey;
+  if(charts[pctId]){
+    charts[pctId].data.datasets[0].label=kpiDef.label;
+    charts[pctId].data.datasets[0].data=rows.map(r=>r[kpiKey]);
+    charts[pctId].data.datasets[0].backgroundColor=rows.map(r=>r[kpiKey]>=50?'rgba(63,185,80,.75)':r[kpiKey]>=25?'rgba(210,153,34,.75)':'rgba(248,81,73,.75)');
+    charts[pctId].data.datasets[0].borderColor=rows.map(r=>r[kpiKey]>=50?'#3fb950':r[kpiKey]>=25?'#d29922':'#f85149');
+    charts[pctId].update();
+  }
+}
+
+renderMonthPills();
+renderDashboard();
+</script>
+</body>
+</html>
